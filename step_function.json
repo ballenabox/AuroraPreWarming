@@ -1,0 +1,110 @@
+{
+  "Comment": "RDS 인스턴스를 available 될 때까지 폴링 및 AuroraReplicaLag 체크, 이후 Lambda로 워밍 실행",
+  "StartAt": "DescribeDBInstance",
+  "States": {
+    "DescribeDBInstance": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:rds:describeDBInstances",
+      "Parameters": {
+        "DbInstanceIdentifier.$": "$.detail.requestParameters.dBInstanceIdentifier"
+      },
+      "ResultPath": "$.describeResult",
+      "Next": "CheckStatus"
+    },
+    "CheckStatus": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.describeResult.DbInstances[0].DbInstanceStatus",
+          "StringEquals": "available",
+          "Next": "ExtractStartTime"
+        }
+      ],
+      "Default": "WaitState"
+    },
+    "WaitState": {
+      "Type": "Wait",
+      "Seconds": 300,
+      "Next": "DescribeDBInstance"
+    },
+    "ExtractStartTime": {
+      "Type": "Pass",
+      "Parameters": {
+        "DbInstanceIdentifier.$": "$.detail.requestParameters.dBInstanceIdentifier",
+        "startTime.$": "$.describeResult.DbInstances[0].InstanceCreateTime"
+      },
+      "ResultPath": "$.time",
+      "Next": "ComputeEndTime"
+    },
+    "ComputeEndTime": {
+      "Type": "Pass",
+      "Parameters": {
+        "startTime.$": "$.time.startTime",
+        "endTime.$": "$$.State.EnteredTime",
+        "DbInstanceIdentifier.$": "$.time.DbInstanceIdentifier"
+      },
+      "ResultPath": "$.time",
+      "Next": "CheckReplicaLag"
+    },
+    "CheckReplicaLag": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:cloudwatch:getMetricStatistics",
+      "Parameters": {
+        "Namespace": "AWS/RDS",
+        "MetricName": "AuroraReplicaLag",
+        "Dimensions": [
+          {
+            "Name": "DBInstanceIdentifier",
+            "Value.$": "$.time.DbInstanceIdentifier"
+          }
+        ],
+        "StartTime.$": "$.time.startTime",
+        "EndTime.$": "$.time.endTime",
+        "Period": 60,
+        "Statistics": [
+          "Average"
+        ]
+      },
+      "ResultPath": "$.lagResult",
+      "Next": "CheckLagValue"
+    },
+    "CheckLagValue": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.lagResult.Datapoints[0]",
+          "IsPresent": false,
+          "Next": "WaitLag"
+        },
+        {
+          "Variable": "$.lagResult.Datapoints[0].Average",
+          "NumericLessThanEquals": 100,
+          "Next": "InvokeWarmingLambda"
+        }
+      ],
+      "Default": "WaitLag"
+    },
+    "WaitLag": {
+      "Type": "Wait",
+      "Seconds": 10,
+      "Next": "ComputeEndTime"
+    },
+    "InvokeWarmingLambda": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:ap-northeast-2:986611521344:function:AuroraReadReplicaWarmingFunction",
+        "InvocationType": "RequestResponse",
+        "Payload": {
+          "DbInstanceIdentifier.$": "$.detail.requestParameters.dBInstanceIdentifier",
+          "Address.$": "$.describeResult.DbInstances[0].Endpoint.Address"
+        }
+      },
+      "ResultPath": "$.warmResult",
+      "Next": "Success"
+    },
+    "Success": {
+      "Type": "Succeed"
+    }
+  }
+}

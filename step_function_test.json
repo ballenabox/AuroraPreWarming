@@ -1,0 +1,30 @@
+{
+  "Comment": "Aurora PostgreSQL Custom Endpoint 관리 워크플로우",
+  "StartAt": "DescribeDBClusterEndpoints",
+  "States": {
+    "DescribeDBClusterEndpoints": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:rds:describeDBClusterEndpoints",
+      "Parameters": {
+        "DbClusterIdentifier.$": "$.dbClusterIdentifier",
+        "DbClusterEndpointIdentifier.$": "$.customEndpointIdentifier"
+      },
+      "ResultSelector": {
+        "endpointInfo.$": "$.DbClusterEndpoints[0]",
+        "currentInstances.$": "$.DbClusterEndpoints[0].StaticMembers"
+      },
+      "ResultPath": "$.endpointDetails",
+      "Next": "ModifyDBClusterEndpoint"
+    },
+    "ModifyDBClusterEndpoint": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:rds:modifyDBClusterEndpoint",
+      "Parameters": {
+        "DbClusterEndpointIdentifier.$": "$.customEndpointIdentifier",
+        "EndpointType": "CUSTOM",
+        "StaticMembers.$": "States.Array($.endpointDetails.currentInstances[*], $.newInstanceIdentifier)"
+      },
+      "End": true
+    }
+  }
+}

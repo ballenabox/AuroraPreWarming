@@ -1,5 +1,5 @@
 {
-  "Comment": "RDS 인스턴스를 available 될 때까지 폴링 및 AuroraReplicaLag 체크, 이후 Lambda로 워밍 실행",
+  "Comment": "Polling RDS instances until they become available and checking AuroraReplicaLag, then warming up with Lambda",
   "StartAt": "DescribeDBInstance",
   "States": {
     "DescribeDBInstance": {
@@ -101,6 +101,28 @@
         }
       },
       "ResultPath": "$.warmResult",
+      "Next": "DescribeDBClusterEndpoints"
+    },
+    "DescribeDBClusterEndpoints": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:rds:describeDBClusterEndpoints",
+      "Parameters": {
+        "DbClusterIdentifier.$": "$.describeResult.DbInstances[0].DbClusterIdentifier",
+        "DbClusterEndpointIdentifier": "custom"
+      },
+      "ResultSelector": {
+        "endpointInfo.$": "$.DbClusterEndpoints[0]"
+      },
+      "ResultPath": "$.endpointDetails",
+      "Next": "ModifyDBClusterEndpoint"
+    },
+    "ModifyDBClusterEndpoint": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:rds:modifyDBClusterEndpoint",
+      "Parameters": {
+        "DbClusterEndpointIdentifier": "custom",
+        "StaticMembers.$": "States.Array($.endpointDetails.endpointInfo.StaticMembers[],$.detail.requestParameters.dBInstanceIdentifier)"
+      },
       "Next": "Success"
     },
     "Success": {

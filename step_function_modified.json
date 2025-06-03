@@ -101,28 +101,21 @@
         }
       },
       "ResultPath": "$.warmResult",
-      "Next": "DescribeDBClusterEndpoints"
+      "Next": "InvokeEndpointManagerLambda"
     },
-    "DescribeDBClusterEndpoints": {
+    "InvokeEndpointManagerLambda": {
       "Type": "Task",
-      "Resource": "arn:aws:states:::aws-sdk:rds:describeDBClusterEndpoints",
+      "Resource": "arn:aws:states:::lambda:invoke",
       "Parameters": {
-        "DbClusterIdentifier.$": "$.describeResult.DbInstances[0].DbClusterIdentifier",
-        "DbClusterEndpointIdentifier": "custom"
+        "FunctionName": "arn:aws:lambda:ap-northeast-2:986611521344:function:AuroraEndpointManagerFunction",
+        "InvocationType": "RequestResponse",
+        "Payload": {
+          "DbClusterIdentifier.$": "$.describeResult.DbInstances[0].DbClusterIdentifier",
+          "DbInstanceIdentifier.$": "$.detail.requestParameters.dBInstanceIdentifier",
+          "DbClusterEndpointIdentifier": "custom"
+        }
       },
-      "ResultSelector": {
-        "endpointInfo.$": "$.DbClusterEndpoints[0]"
-      },
-      "ResultPath": "$.endpointDetails",
-      "Next": "ModifyDBClusterEndpoint"
-    },
-    "ModifyDBClusterEndpoint": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::aws-sdk:rds:modifyDBClusterEndpoint",
-      "Parameters": {
-        "DbClusterEndpointIdentifier": "custom",
-        "StaticMembers.$": "States.Array($.endpointDetails.endpointInfo.StaticMembers[],$.detail.requestParameters.dBInstanceIdentifier)"
-      },
+      "ResultPath": "$.endpointResult",
       "Next": "Success"
     },
     "Success": {

@@ -112,8 +112,7 @@
       },
       "ResultSelector": {
         "endpointInfo.$": "$.DbClusterEndpoints[0]",
-        "staticMembers.$": "$.DbClusterEndpoints[0].StaticMembers",
-        "dbInstanceIdentifier.$": "$.detail.requestParameters.dBInstanceIdentifier"
+        "staticMembers.$": "$.DbClusterEndpoints[0].StaticMembers"
       },
       "ResultPath": "$.endpointDetails",
       "Next": "UpdateStaticMembersLambda"
@@ -122,11 +121,11 @@
       "Type": "Task",
       "Resource": "arn:aws:states:::lambda:invoke",
       "Parameters": {
-        "FunctionName": "arn:aws:lambda:ap-northeast-2:986611521344:function:UpdateStaticMembersFunction",
+        "FunctionName": "arn:aws:lambda:ap-northeast-2:986611521344:function:junwoo-ReturnStaticMembers",
         "InvocationType": "RequestResponse",
         "Payload": {
-          "StaticMembers.$": "$.endpointDetails.staticMembers",
-          "DbInstanceIdentifier.$": "$.endpointDetails.dbInstanceIdentifier"
+          "StaticMembers.$": "$.endpointDetails.endpointInfo.StaticMembers",
+          "DbInstanceIdentifier.$": "$.detail.requestParameters.dBInstanceIdentifier"
         }
       },
       "ResultSelector": {
@@ -140,7 +139,7 @@
       "Resource": "arn:aws:states:::aws-sdk:rds:modifyDBClusterEndpoint",
       "Parameters": {
         "DbClusterEndpointIdentifier": "custom",
-        "StaticMembers.$": "$.lambdaResult.updatedStaticMembers"
+        "StaticMembers.$": "$.lambdaResult.updatedStaticMembers.updatedStaticMembers"
       },
       "Next": "Success"
     },

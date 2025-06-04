@@ -111,9 +111,28 @@
         "DbClusterEndpointIdentifier": "custom"
       },
       "ResultSelector": {
-        "endpointInfo.$": "$.DbClusterEndpoints[0]"
+        "endpointInfo.$": "$.DbClusterEndpoints[0]",
+        "staticMembers.$": "$.DbClusterEndpoints[0].StaticMembers",
+        "dbInstanceIdentifier.$": "$.detail.requestParameters.dBInstanceIdentifier"
       },
       "ResultPath": "$.endpointDetails",
+      "Next": "UpdateStaticMembersLambda"
+    },
+    "UpdateStaticMembersLambda": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:ap-northeast-2:986611521344:function:UpdateStaticMembersFunction",
+        "InvocationType": "RequestResponse",
+        "Payload": {
+          "StaticMembers.$": "$.endpointDetails.staticMembers",
+          "DbInstanceIdentifier.$": "$.endpointDetails.dbInstanceIdentifier"
+        }
+      },
+      "ResultSelector": {
+        "updatedStaticMembers.$": "$.Payload"
+      },
+      "ResultPath": "$.lambdaResult",
       "Next": "ModifyDBClusterEndpoint"
     },
     "ModifyDBClusterEndpoint": {
@@ -121,7 +140,7 @@
       "Resource": "arn:aws:states:::aws-sdk:rds:modifyDBClusterEndpoint",
       "Parameters": {
         "DbClusterEndpointIdentifier": "custom",
-        "StaticMembers.$": "States.Array($.endpointDetails.endpointInfo.StaticMembers[],$.detail.requestParameters.dBInstanceIdentifier)"
+        "StaticMembers.$": "$.lambdaResult.updatedStaticMembers"
       },
       "Next": "Success"
     },

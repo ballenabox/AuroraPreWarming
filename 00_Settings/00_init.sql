@@ -50,13 +50,16 @@ CREATE TABLE public.pgbench_history (
 CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
 
 -- Top100 쿼리 추출
+-- SELECT 쿼리만 추출하기
 SELECT 
   query,
   calls,
   total_exec_time   AS total_time,
   mean_exec_time    AS mean_time
 FROM pg_stat_statements
-WHERE query NOT ILIKE '%pg_stat_statements%'
+WHERE 
+  query NOT ILIKE '%pg_stat_statements%' 
+  AND query ~* '^\s*select'
 ORDER BY total_exec_time DESC
 LIMIT 100;
 
@@ -75,17 +78,19 @@ $$
   )
   -- 2) Top100 쿼리 결과를 CSV 형식으로 S3에 내보내기
   SELECT aws_s3.query_export_to_s3(
-    $$
-      SELECT
-        query,
-        calls,
-        total_exec_time AS total_time,
-        mean_exec_time  AS mean_time
-      FROM pg_stat_statements
-      WHERE query NOT ILIKE '%pg_stat_statements%'
-      ORDER BY total_exec_time DESC
-      LIMIT 100
-    $$,
+    $qry$
+	SELECT 
+	  query,
+	  calls,
+	  total_exec_time   AS total_time,
+	  mean_exec_time    AS mean_time
+	FROM pg_stat_statements
+	WHERE 
+	  query NOT ILIKE '%pg_stat_statements%' 
+	  AND query ~* '^\s*select'
+	ORDER BY total_exec_time DESC
+	LIMIT 100;
+    $qry$,
     uri.s3uri,
     options := 'format csv, header true'
   )
@@ -96,7 +101,7 @@ $$
 -- pg_cron 주석 없는 버전
 SELECT cron.schedule(
   'dump_top100_to_s3',
-  '*/30 * * * *',
+  '0 * * * *',
 $$
   WITH uri AS (
     SELECT aws_commons.create_s3_uri(
@@ -106,17 +111,19 @@ $$
     ) AS s3uri
   )
   SELECT aws_s3.query_export_to_s3(
-    $$
-      SELECT
-        query,
-        calls,
-        total_exec_time AS total_time,
-        mean_exec_time  AS mean_time
-      FROM pg_stat_statements
-      WHERE query NOT ILIKE '%pg_stat_statements%'
-      ORDER BY total_exec_time DESC
-      LIMIT 100
-    $$,
+    $qry$
+	SELECT 
+	  query,
+	  calls,
+	  total_exec_time   AS total_time,
+	  mean_exec_time    AS mean_time
+	FROM pg_stat_statements
+	WHERE 
+	  query NOT ILIKE '%pg_stat_statements%' 
+	  AND query ~* '^\s*select'
+	ORDER BY total_exec_time DESC
+	LIMIT 100;
+    $qry$,
     uri.s3uri,
     options := 'format csv, header true'
   )
@@ -134,18 +141,19 @@ WITH uri AS (
 )
 SELECT aws_s3.query_export_to_s3(
   $qry$
-	SELECT
+	SELECT 
 	  query,
 	  calls,
-	  total_exec_time AS total_time,
-	  mean_exec_time  AS mean_time
+	  total_exec_time   AS total_time,
+	  mean_exec_time    AS mean_time
 	FROM pg_stat_statements
-	WHERE query NOT ILIKE '%pg_stat_statements%'
+	WHERE 
+	  query NOT ILIKE '%pg_stat_statements%' 
+	  AND query ~* '^\s*select'
 	ORDER BY total_exec_time DESC
-	LIMIT 100
+	LIMIT 100;
   $qry$,
   uri.s3uri,
   options := 'format csv, header true'
 )
 FROM uri;
-

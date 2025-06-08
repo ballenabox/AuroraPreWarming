@@ -27,7 +27,7 @@ EventBridge
 1. Aurora PostgreSQL에서 Scale Out 발생 시 CloudTrail에 기록되는 이벤트(CreateDBInstance) 감지
 2. 이벤트가 감지되면 Rule에 연결된 대상(Step Function) 작동
 
-Step Function
+[Step Function][STEP]
 1. EventBridge를 통해 트리거 이벤트(CreateDBInstance)의 정보(JSON)를 Input 값으로 입력 받음
 2. Input 값을 통해 생성된 DB 인스턴스의 정보 확인
 3. 생성된 DB 인스턴스의 상태가 사용 가능(Available) 상태가 될 때까지 대기 및 확인
@@ -52,6 +52,6 @@ Lambda
 
 
 
-
+   [STEP]: <https://github.com/ballenabox/AuroraPreWarming/blob/main/01_StepFunction/StepFunction.json>
    [WDBP]: <https://github.com/ballenabox/AuroraPreWarming/blob/main/02_Lambda/WarmingDBInstance.py>
    [USMP]: <https://github.com/ballenabox/AuroraPreWarming/blob/main/02_Lambda/UpdateStaticMembers.py>

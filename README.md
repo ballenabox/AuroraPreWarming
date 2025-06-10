@@ -55,5 +55,5 @@ Lambda
 
 
    [STEP]: <https://github.com/ballenabox/AuroraPreWarming/blob/main/01_StepFunction/StepFunction.json>
-   [WDBP]: <https://github.com/ballenabox/AuroraPreWarming/blob/main/02_Lambda/WarmingDBInstance.py>
-   [USMP]: <https://github.com/ballenabox/AuroraPreWarming/blob/main/02_Lambda/UpdateStaticMembers.py>
+   [WDBP]: <https://github.com/ballenabox/AuroraPreWarming/blob/main/02_Lambda/WarmingDBInstance/WarmingDBInstance.py>
+   [USMP]: <https://github.com/ballenabox/AuroraPreWarming/blob/main/02_Lambda/UpdateStaticMembers/UpdateStaticMembers.py>

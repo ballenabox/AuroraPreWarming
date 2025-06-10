@@ -1,0 +1,54 @@
+# 1. 워크플로우 이름 지정 (GitHub Actions UI에 표시되는 제목)
+name: Deploy Lambda WarmingDBInstance
+
+# 2. 이벤트 트리거 설정
+on:
+  push:
+    branches:
+      - main             # main 브랜치로 푸시될 때만 실행
+    paths:
+      - '02_Lambda/WarmingDBInstance/**'  # lambda/fn1 디렉토리 내 파일 변경 시에만 실행
+      - '.github/**'     # 워크플로우 파일(.github/) 변경 시에도 실행
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+  AWS_ROLE_SESSION_NAME: junwoo-session
+
+jobs:
+  # 3. 배포 작업(job) 정의. 아무 이름이나 써도 무관합니다.
+  deploy:
+    runs-on: ubuntu-latest  # 4. 어떤 호스트에서 실행할지 지정 (Ubuntu 최신 버전)
+
+    steps:
+      # 5. 코드를 체크아웃해 workspace에 가져옵니다.
+      - uses: actions/checkout@v4
+
+      # 6. AWS 자격증명 설정: 이후 aws cli, ECR 로그인 등에 사용됩니다.
+      - uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          role-session-name: ${{ env.AWS_ROLE_SESSION_NAME }}
+
+      # 7. ECR 로그인: Docker push/pull 권한을 얻기 위해
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      # 8. 컨테이너 이미지 빌드·태그·푸시
+      - name: Build, Tag, and Push to ECR
+        env:
+          ECR_REGISTRY:   ${{ steps.login-ecr.outputs.registry }}         # 로그인 단계가 출력한 레지스트리 URI
+          ECR_REPOSITORY: junwoo                                          # 사용할 ECR 리포지토리명
+          IMAGE_TAG:      WarmingDBInstance-${{ github.sha }}             # 이미지 태그 (커밋 SHA 기반)
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG lambda/WarmingDBInstance
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+      # 9. Lambda 함수 코드(이미지) 업데이트
+      - name: Update Lambda WarmingDBInstance
+        run: |
+          aws lambda update-function-code \
+            --function-name WarmingDBInstance \
+            --image-uri $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG

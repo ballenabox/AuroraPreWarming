@@ -38,7 +38,10 @@ jobs:
       # 7. ECR 로그인: Docker push/pull 권한을 얻기 위해
       - name: Login to Amazon ECR
         id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v1
+        uses: aws-actions/amazon-ecr-login@v2
+        with:
+          mask-password: "true"
+          registry-type: private
 
       # 8. 컨테이너 이미지 빌드·태그·푸시
       - name: Build, Tag, and Push to ECR

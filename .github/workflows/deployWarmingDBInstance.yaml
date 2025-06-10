@@ -25,7 +25,7 @@ jobs:
       - uses: actions/checkout@v4
 
       # 6. AWS 자격증명 설정: 이후 aws cli, ECR 로그인 등에 사용됩니다.
-      - uses: aws-actions/configure-aws-credentials@v2
+      - uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ env.AWS_ROLE_ARN }}

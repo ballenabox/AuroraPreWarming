@@ -57,5 +57,5 @@ jobs:
       - name: Update Lambda WarmingDBInstance
         run: |
           aws lambda update-function-code \
-            --function-name WarmingDBInstance \
+            --function-name junwoo-WarmingDBInstance \
             --image-uri $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG

@@ -9,7 +9,7 @@ import os
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
-        description="Query an Aurora Custom Endpoint using pgbench schema, with settings read from a config file."
+        description="Query an Aurora Custom Endpoint using top queries from S3 CSV file."
     )
     parser.add_argument(
         "--config",
@@ -20,7 +20,7 @@ def parse_arguments():
 
 def load_config(path):
     """
-    INI 파일(path)을 읽어서 필요한 파라미터(endpoint, port, database, user, duration, interval)를 반환
+    INI 파일(path)을 읽어서 필요한 파라미터를 반환
     """
     if not os.path.isfile(path):
         raise FileNotFoundError(f"Config 파일을 찾을 수 없습니다: {path}")
@@ -66,23 +66,34 @@ def load_config(path):
         "interval": interval
     }
 
+def get_test_query():
+    """
+    테스트에 사용할 고정 쿼리를 반환
+    """
+    return "select sum(used_bytes) as volume_bytes_used from aurora_stat_file()"
+    return top_query
+
 def main():
-    # 1) CLI에서 --config 인자로 INI 파일 경로를 받는다
+    # 1) CLI에서 인자 파싱
     args = parse_arguments()
 
     # 2) INI 파일을 로드하여 파라미터 딕셔너리로 가져온다
     cfg = load_config(args.config)
 
-    # 3) 비밀번호는 실행 후 프롬프트로 안전하게 입력받는다
+    # 3) 테스트에 사용할 고정 쿼리 가져오기
+    test_query = get_test_query()
+    print(f"테스트 쿼리: {test_query}")
+
+    # 4) 비밀번호는 실행 후 프롬프트로 안전하게 입력받는다
     password = getpass.getpass(prompt="Database password: ")
 
-    # 4) 테스트 종료 시각을 계산
+    # 5) 테스트 종료 시각을 계산
     end_time = time.time() + cfg["duration"]
 
     while time.time() < end_time:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         try:
-            # 5) 커넥션 연결 전/후 시간 측정
+            # 6) 커넥션 연결 전/후 시간 측정
             conn_start = time.time()
             conn = psycopg2.connect(
                 host=cfg["endpoint"],
@@ -96,27 +107,33 @@ def main():
 
             cur = conn.cursor()
 
-            # 6) pgbench 스키마 기반 테스트 쿼리 수행 전/후 시간 측정
+            # 7) 테스트 쿼리 실행 전/후 시간 측정
             query_start = time.time()
-            cur.execute("""
-                SELECT 
-                  inet_server_addr() AS server_ip, 
-                  (SELECT COUNT(*) FROM pgbench_accounts) AS account_count;
-            """)
-            server_ip, account_count = cur.fetchone()
+            cur.execute(test_query)
+            query_results = cur.fetchall()
             query_end = time.time()
 
-            # 7) 연결 시간 및 쿼리 실행 시간 계산
-            conn_time  = conn_end - conn_start
+            # 8) 연결 시간 및 쿼리 실행 시간 계산
+            conn_time = conn_end - conn_start
             query_time = query_end - query_start
 
-            # 8) 로그 출력
+            # 9) 로그 출력
+            endpoint = conn.get_dsn_parameters().get('host')
+            
+            # 실제 연결된 인스턴스의 IP 주소 가져오기
+            cur.execute("SELECT inet_server_addr()")
+            server_ip = cur.fetchone()[0]
+            
+            # 결과값 출력 (volume_bytes_used)
+            volume_bytes_used = query_results[0][0] if query_results and query_results[0] else "N/A"
+            
             print(
                 f"[{timestamp}] "
-                f"IP: {server_ip} | "
+                f"Endpoint: {endpoint} | "
+                f"Instance IP: {server_ip} | "
                 f"Connect: {conn_time:.3f}s | "
                 f"Query: {query_time:.3f}s | "
-                f"Accounts: {account_count}"
+                f"Volume bytes used: {volume_bytes_used}"
             )
 
             cur.close()
@@ -126,7 +143,7 @@ def main():
         except Exception as e:
             print(f"[{timestamp}] Unexpected error: {e}")
 
-        # 9) 다음 반복 전 잠시 대기
+        # 10) 다음 반복 전 잠시 대기
         time.sleep(cfg["interval"])
 
 if __name__ == "__main__":

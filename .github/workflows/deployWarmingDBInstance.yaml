@@ -55,6 +55,10 @@ jobs:
 
       # 9. Lambda 함수 코드(이미지) 업데이트
       - name: Update Lambda WarmingDBInstance
+        env:
+          ECR_REGISTRY:   ${{ steps.login-ecr.outputs.registry }}         # 로그인 단계가 출력한 레지스트리 URI
+          ECR_REPOSITORY: junwoo                                          # 사용할 ECR 리포지토리명
+          IMAGE_TAG:      WarmingDBInstance-${{ github.sha }}             # 이미지 태그 (커밋 SHA 기반)
         run: |
           aws lambda update-function-code \
             --function-name junwoo-WarmingDBInstance \
